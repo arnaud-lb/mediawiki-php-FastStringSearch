@@ -1,3 +1,9 @@
+php5-fss (1.0-1) precise; urgency=low
+
+  * (bug 51551) Fix null pointer dereference
+
+ -- Tim Starling <tstarling@wikimedia.org>  Thu, 18 Jul 2013 12:43:10 +1000
+
 php5-fss (0.0.1-3) lucid-wikimedia; urgency=low
 
   * Changing packaging for lucid
