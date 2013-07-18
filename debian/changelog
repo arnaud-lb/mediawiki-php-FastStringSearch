@@ -1,4 +1,4 @@
-php5-fss (1.0-1) precise; urgency=low
+php5-fss (1.0-1) precise-wikimedia; urgency=low
 
   * (bug 51551) Fix null pointer dereference
 
