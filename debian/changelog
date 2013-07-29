@@ -1,3 +1,9 @@
+php5-fss (1.0-2) precise-wikimedia; urgency=low
+
+  * PHP ini file used '#' for comments which is deprecated.
+
+ -- Antoine Musso <hashar@free.fr>  Mon, 29 Jul 2013 14:41:18 +0000
+
 php5-fss (1.0-1) precise-wikimedia; urgency=low
 
   * (bug 51551) Fix null pointer dereference
