@@ -16,10 +16,11 @@ typedef struct {
 	Variant* replace[1];
 } fss_resource_t;
 
-class FastStringSearchResource : public SweepableResourceData {
+class FastStringSearchResource : public ResourceData {
 public:
-	DECLARE_RESOURCE_ALLOCATION(FastStringSearchResource)
+	DECLARE_RESOURCE_ALLOCATION_NO_SWEEP(FastStringSearchResource)
 	CLASSNAME_IS("fss")
+
 	virtual const String& o_getClassNameHook() const {
 		return classnameof();
 	}
@@ -27,27 +28,27 @@ public:
 	explicit FastStringSearchResource(fss_resource_t* fss_r) {
 		m_fss_r = fss_r;
 	}
+
 	virtual ~FastStringSearchResource() {
 		close();
 	}
+
 	void close() {
 		int i;
-		for (i=0; i < m_fss_r->replace_size; i++ ) {
-			if(m_fss_r->replace[i]) {
+		for (i = 0; i < m_fss_r->replace_size; i++) {
+			if (m_fss_r->replace[i]) {
 				delete(m_fss_r->replace[i]);
 			}
 		}
 	}
+
 	fss_resource_t* getStruct() {
 		return m_fss_r;
 	}
+
 private:
 	fss_resource_t* m_fss_r;
 };
-
-void FastStringSearchResource::sweep() {
-	close();
-}
 
 static Variant HHVM_FUNCTION(fss_prep_search, const Variant& needle) {
 	fss_resource_t * res;
