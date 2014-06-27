@@ -1,4 +1,4 @@
-php5-fss (1.0-3) UNRELEASED; urgency=medium
+php5-fss (1.1-1) unstable; urgency=medium
 
   * Various Debian packaging fixes
     - Rewrite debian/rules using dh; bump debhelper to 9.
@@ -8,6 +8,8 @@ php5-fss (1.0-3) UNRELEASED; urgency=medium
     - Rewrite short/long description.
     - Add dependency on the phpapi virtual package.
     - Switch to the 3.0 (native) source format.
+  * Add an hhvm-wikidiff2 package and add hacks to build the source twice,
+    once for PHP and once for HHVM.
 
  -- Faidon Liambotis <faidon@wikimedia.org>  Fri, 27 Jun 2014 16:49:48 +0000
 
