@@ -31,12 +31,13 @@ public:
 		close();
 	}
 	void close() {
-		int i;
-		for (i=0; i < m_fss_r->replace_size; i++ ) {
-			if(m_fss_r->replace[i]) {
-				delete(m_fss_r->replace[i]);
-			}
+		sweep();
+		for (int i = 0; i < m_fss_r->replace_size; i++) {
+			smart_delete(m_fss_r->replace[i]);
+			m_fss_r->replace[i] = NULL;
 		}
+		smart_free(m_fss_r);
+		m_fss_r = NULL;
 	}
 	fss_resource_t* getStruct() {
 		return m_fss_r;
@@ -46,7 +47,7 @@ private:
 };
 
 void FastStringSearchResource::sweep() {
-	close();
+	kwsfree(m_fss_r->set);
 }
 
 static Variant HHVM_FUNCTION(fss_prep_search, const Variant& needle) {
@@ -105,9 +106,7 @@ static Variant HHVM_FUNCTION(fss_exec_search, const Resource& r, const String& h
 		return false;
 	}
 
-	Array match = Array::Create();
-	match.set( 0, (int64_t)(m.offset[0] + offset) );
-	match.set( 1, (int64_t)(m.size[0]) );
+	Array match = make_packed_array((int64_t)(m.offset[0] + offset), (int64_t)(m.size[0]));
 
 	return match;
 }
@@ -117,7 +116,7 @@ static Resource HHVM_FUNCTION(fss_prep_replace, const Array& pairs ) {
 	const char *error;
 	int i = 0;
 	const char *string_key;
-	uint string_key_len;
+	size_t string_key_len;
 	char buffer[40];
 
 	/* fss_resource_t has an open-ended array, we allocate enough memory for the
@@ -127,6 +126,7 @@ static Resource HHVM_FUNCTION(fss_prep_replace, const Array& pairs ) {
 	res->replace_size = pairs.size();
 
 	for(ArrayIter iter(pairs); iter; ++iter) {
+		String s;
 		Variant key = iter.first();
 		/* Convert numeric keys to string */
 		if(key.getType() == KindOfInt64) {
@@ -134,8 +134,9 @@ static Resource HHVM_FUNCTION(fss_prep_replace, const Array& pairs ) {
 			string_key = buffer;
 			string_key_len = strlen(buffer);
 		} else {
-			string_key = key.toString().c_str();
-			string_key_len = key.toString().size();
+			s = key.toString();
+			string_key = s.c_str();
+			string_key_len = s.size();
 		}
 
 		/* Don't add zero-length strings, that will cause infinite loops in
@@ -154,7 +155,7 @@ static Resource HHVM_FUNCTION(fss_prep_replace, const Array& pairs ) {
 		}
 
 		/* Add the value to the replace array */
-		res->replace[i++] = new Variant(iter.second());
+		res->replace[i++] = smart_new<Variant>(iter.second());
 	}
 	kwsprep(res->set);
 
@@ -170,7 +171,7 @@ static Variant HHVM_FUNCTION(fss_exec_replace, const Resource& r, const String& 
 	fss_resource_t * res = fss_r->getStruct();
 	size_t match_pos = 0;
 	struct kwsmatch m;
-	StringBuffer* result = new StringBuffer();
+	StringBuffer result;
 	const char * subject_ptr = subject.c_str();
 	int subject_len = subject.size();
 
@@ -178,7 +179,7 @@ static Variant HHVM_FUNCTION(fss_exec_replace, const Resource& r, const String& 
 		(size_t)-1 != (match_pos = kwsexec(res->set, subject_ptr, subject_len, &m)))
 	{
 		/* Output the leading portion */
-		result->append(subject_ptr, match_pos);
+		result.append(subject_ptr, match_pos);
 
 		/* Output the replacement portion
 		   The index may be above the size of the replacement array if the
@@ -189,7 +190,7 @@ static Variant HHVM_FUNCTION(fss_exec_replace, const Resource& r, const String& 
 			Variant* temp = res->replace[m.index];
 			if (temp) {
 				String temp_s = temp->toString();
-				result->append(temp_s.c_str(), temp_s.size());
+				result.append(temp_s.c_str(), temp_s.size());
 			}
 		}
 
@@ -199,10 +200,10 @@ static Variant HHVM_FUNCTION(fss_exec_replace, const Resource& r, const String& 
 	}
 	/* Output the remaining portion */
 	if (subject_len > 0) {
-		result->append(subject_ptr, subject_len);
+		result.append(subject_ptr, subject_len);
 	}
 	/* Return the result */
-	return result->detach();
+	return result.detach();
 }
 
 static bool HHVM_FUNCTION(fss_free, const Resource& r ) {
@@ -230,4 +231,3 @@ static class FSSExtension : public Extension {
 HHVM_GET_MODULE(fss)
 
 } // namespace HPHP
-
