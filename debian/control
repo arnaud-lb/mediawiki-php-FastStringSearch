@@ -17,7 +17,7 @@ Description: fast string search extension for PHP
 
 Package: hhvm-fss
 Architecture: any
-Depends: hhvm, ${shlibs:Depends}, ${misc:Depends}, ${php:Depends}
+Depends: hhvm (= ${hhvm:Depends}), ${shlibs:Depends}, ${misc:Depends}, ${php:Depends}
 Description: fast string search extension for HHVM
  This is a HHVM extension for fast string search and replace that supports
  multiple search terms. It can be used as a replacement for PHP's strtr, which
