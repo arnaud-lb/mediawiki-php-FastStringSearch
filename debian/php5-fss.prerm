@@ -5,7 +5,7 @@ set -e
 #EXTRA#
 
 if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
-   /usr/sbin/php5dismod -s ALL fss
+   php5dismod -s ALL fss
 fi;
 
 #DEBHELPER#

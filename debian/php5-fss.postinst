@@ -3,7 +3,7 @@
 set -e
 
 #EXTRA#
-/usr/sbin/php5enmod -s ALL fss
+[ "$1" = "configure" ] && php5enmod -s ALL fss
 
 #DEBHELPER#
 
