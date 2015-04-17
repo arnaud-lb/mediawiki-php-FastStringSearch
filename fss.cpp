@@ -5,6 +5,9 @@
 */
 
 #include "hphp/runtime/base/base-includes.h"
+#include "hphp/runtime/base/string-buffer.h"
+#include "hphp/runtime/base/array-init.h"
+#define NEWOBJ(T) new (HPHP::MM().smartMallocSizeLogged(sizeof(T))) T
 
 #include "kwset.h"
 
