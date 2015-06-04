@@ -36,6 +36,9 @@ public:
 	void close() {
 		sweep();
 		for (int i = 0; i < m_fss_r->replace_size; i++) {
+			if (!m_fss_r->replace[i]) {
+				continue;
+			}
 			smart_delete(m_fss_r->replace[i]);
 			m_fss_r->replace[i] = NULL;
 		}
