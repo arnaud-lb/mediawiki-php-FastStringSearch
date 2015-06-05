@@ -1,3 +1,9 @@
+php5-fss (1.1.7) trusty-wikimedia; urgency=medium
+
+  * Ori Livneh: "Fix segfault"
+
+ -- Filippo Giunchedi <filippo@wikimedia.org>  Fri, 05 Jun 2015 21:19:22 +0000
+
 php5-fss (1.1.6) trusty-wikimedia; urgency=medium
 
   * Add missing 'hhvm' to Build-Depends in order to get the right hhvm-api- dependency
