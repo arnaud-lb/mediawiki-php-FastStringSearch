@@ -163,6 +163,9 @@ static Resource HHVM_FUNCTION(fss_prep_replace, const Array& pairs ) {
 		/* Add the value to the replace array */
 		res->replace[i++] = smart_new<Variant>(iter.second());
 	}
+	for (; i < res->replace_size; i++) {
+		res->replace[i] = NULL;
+	}
 	kwsprep(res->set);
 
 	return NEWOBJ(FastStringSearchResource)(res);
