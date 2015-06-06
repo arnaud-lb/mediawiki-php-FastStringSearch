@@ -26,5 +26,8 @@ $fss = fss_prep_replace(array(
         'ab' => 'X',
 ));
 
+$fss = fss_prep_replace( array( "a" => "1", "" => "2", "c" => "3" ) );
+var_dump( fss_exec_replace( $fss, "abcde" ) );
+
 var_dump(fss_exec_replace($fss, 'ddabcababcaaaab'));
 

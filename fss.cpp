@@ -61,7 +61,15 @@ static Variant HHVM_FUNCTION(fss_prep_search, const Variant& needle) {
 	const char *error;
 
 	res = (fss_resource_t*)smart_malloc(sizeof(fss_resource_t));
+	if (!res) {
+		throw Exception("Out of memory");
+	}
+
 	res->set = kwsalloc(NULL);
+	if (!res->set) {
+		throw Exception("Out of memory");
+	}
+
 	res->replace_size = 0;
 
 	if (needle.getType() == KindOfArray) {
@@ -88,7 +96,11 @@ static Variant HHVM_FUNCTION(fss_prep_search, const Variant& needle) {
 			return false;
 		}
 	}
-	kwsprep(res->set);
+	error = kwsprep(res->set);
+	if (error) {
+		raise_warning("kwsprep: %s", error);
+		return false;
+	}
 
 	return NEWOBJ(FastStringSearchResource)(res);
 }
@@ -128,7 +140,14 @@ static Resource HHVM_FUNCTION(fss_prep_replace, const Array& pairs ) {
 	/* fss_resource_t has an open-ended array, we allocate enough memory for the
 	   header plus all the array elements, plus one extra element for good measure */
 	res = (fss_resource_t*)smart_malloc(sizeof(Variant*) * pairs.size() + sizeof(fss_resource_t));
+	if (!res) {
+		throw Exception("Out of memory");
+	}
+
 	res->set = kwsalloc(NULL);
+	if (!res->set) {
+		throw Exception("Out of memory");
+	}
 	res->replace_size = pairs.size();
 
 	for(ArrayIter iter(pairs); iter; ++iter) {
@@ -166,7 +185,10 @@ static Resource HHVM_FUNCTION(fss_prep_replace, const Array& pairs ) {
 	for (; i < res->replace_size; i++) {
 		res->replace[i] = NULL;
 	}
-	kwsprep(res->set);
+	error = kwsprep(res->set);
+	if (error) {
+		throw Exception("kwsprep: %s", error);
+	}
 
 	return NEWOBJ(FastStringSearchResource)(res);
 }
@@ -215,12 +237,7 @@ static Variant HHVM_FUNCTION(fss_exec_replace, const Resource& r, const String& 
 	return result.detach();
 }
 
-static bool HHVM_FUNCTION(fss_free, const Resource& r ) {
-	auto fss_r = r.getTyped<FastStringSearchResource>();
-	if (!fss_r) {
-		return false;
-	}
-	fss_r->close();
+static bool HHVM_FUNCTION(fss_free, const Resource& r) {
 	return true;
 }
 
