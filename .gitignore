@@ -1,0 +1,4 @@
+CMakeLists.txt
+config.cmake
+/test/core
+.idea
