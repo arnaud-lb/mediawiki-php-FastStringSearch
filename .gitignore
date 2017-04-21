@@ -4,3 +4,4 @@ config.cmake
 .idea
 include
 core
+cmake-build-debug
