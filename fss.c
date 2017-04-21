@@ -8,7 +8,6 @@
 #include "config.h"
 #endif
 
-#include <zend_types.h>
 #include "php.h"
 #include "Zend/zend.h"
 #include "php_ini.h"
