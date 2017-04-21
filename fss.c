@@ -8,6 +8,7 @@
 #include "config.h"
 #endif
 
+#include <zend_types.h>
 #include "php.h"
 #include "Zend/zend.h"
 #include "php_ini.h"
@@ -199,7 +200,6 @@ PHP_FUNCTION(fss_prep_replace)
 	   header plus all the array elements, plus one extra element for good measure */
 	res = safe_emalloc(sizeof(zval*), hash->nNumOfElements, sizeof(fss_resource_t));
 	res->set = kwsalloc(NULL);
-	res->replace_size = hash->nNumOfElements;
 
     i = 0;
     ZEND_HASH_FOREACH_KEY_VAL(hash, num_key, string_key, value) {
@@ -236,6 +236,7 @@ PHP_FUNCTION(fss_prep_replace)
                 ++i;
         } ZEND_HASH_FOREACH_END();
 
+    res->replace_size = i;
 	kwsprep(res->set);
 
     RETURN_RES(zend_register_resource(res, le_fss));
@@ -334,7 +335,7 @@ static void _php_fss_close(zend_resource *rsrc TSRMLS_DC)
 	/* Destroy the replace strings */
 	for (i = 0; i < res->replace_size; i++) {
 		if (res->replace[i]) {
-			zval_ptr_dtor(res->replace[i]);
+            zval_ptr_dtor(res->replace[i]);
 		}
 	}
 	/* Destroy the kwset structure */
