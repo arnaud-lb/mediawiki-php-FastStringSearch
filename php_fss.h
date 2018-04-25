@@ -9,6 +9,7 @@
 
 extern zend_module_entry fss_module_entry;
 #define phpext_fss_ptr &fss_module_entry
+#define SW_MAKE_STD_ZVAL(p)  zval _stack_zval_##p; p = &(_stack_zval_##p)
 
 #ifdef PHP_WIN32
 #define PHP_FSS_API __declspec(dllexport)

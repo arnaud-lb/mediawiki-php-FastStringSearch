@@ -13,7 +13,7 @@
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "php_fss.h"
-#include "ext/standard/php_smart_str.h"
+#include "zend_smart_str.h"
 #include "kwset.h"
 
 typedef struct {
@@ -22,40 +22,36 @@ typedef struct {
 	zval * replace[1];
 } fss_resource_t;
 
-static void _php_fss_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
+static void _php_fss_close(zend_resource *rsrc TSRMLS_DC);
 
 /* True global resources - no need for thread safety here */
 static int le_fss;
 
 /* {{{ fss_functions[]
  */
-zend_function_entry fss_functions[] = {
-	PHP_FE(fss_prep_search,	NULL)
-	PHP_FE(fss_exec_search,	NULL)
+const zend_function_entry fss_functions[] = {
+	PHP_FE(fss_prep_search,	    NULL)
+	PHP_FE(fss_exec_search,	    NULL)
 	PHP_FE(fss_prep_replace,	NULL)
 	PHP_FE(fss_exec_replace,	NULL)
-	PHP_FE(fss_free,	NULL)
-	{NULL, NULL, NULL}	/* Must be the last line in fss_functions[] */
+	PHP_FE(fss_free,	        NULL)
+    PHP_FE_END
 };
 /* }}} */
 
 /* {{{ fss_module_entry
  */
 zend_module_entry fss_module_entry = {
-#if ZEND_MODULE_API_NO >= 20010901
-	STANDARD_MODULE_HEADER,
-#endif
-	"fss",
-	fss_functions,
-	PHP_MINIT(fss),
-	PHP_MSHUTDOWN(fss),
-	NULL, /* RINIT */
-	NULL, /* RSHUTDOWN */
-	PHP_MINFO(fss),
-#if ZEND_MODULE_API_NO >= 20010901
-	"0.1.1", 
-#endif
-	STANDARD_MODULE_PROPERTIES
+        STANDARD_MODULE_HEADER,
+	    "fss",
+	    fss_functions,
+	    PHP_MINIT(fss),
+	    PHP_MSHUTDOWN(fss),
+	    NULL, /* RINIT */
+	    NULL, /* RSHUTDOWN */
+	    PHP_MINFO(fss),
+        "0.1.1",
+        STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
 
@@ -97,46 +93,38 @@ PHP_MINFO_FUNCTION(fss)
    Prepare a string search */
 PHP_FUNCTION(fss_prep_search)
 {
-	int argc = ZEND_NUM_ARGS();
-	zval *needle = NULL, **elem;
-	fss_resource_t * res;
-	HashTable * hash;
-	HashPosition hpos;
+	zval *needle = NULL, *elem;
+    fss_resource_t *res;
 	const char *error;
 
-	if (zend_parse_parameters(argc TSRMLS_CC, "z", &needle) == FAILURE) 
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &needle) == FAILURE) {
 		return;
-	
+	}
+
 	res = emalloc(sizeof(fss_resource_t));
 	res->set = kwsalloc(NULL);
 	res->replace_size = 0;
 
 	if (Z_TYPE_P(needle) == IS_ARRAY) {
-		hash = Z_ARRVAL_P(needle);
-		for (zend_hash_internal_pointer_reset_ex(hash, &hpos); 
-				zend_hash_get_current_data_ex(hash, (void**)&elem, &hpos) == SUCCESS;
-				zend_hash_move_forward_ex(hash, &hpos)) 
-		{
-			convert_to_string_ex(elem);
-			/* Don't add zero-length strings, that will cause infinite loops in 
-				search routines */
-			if (!Z_STRLEN_PP(elem)) {
-				continue;
-			}
-			error = kwsincr(res->set, Z_STRVAL_PP(elem), Z_STRLEN_PP(elem));
-			if (error) {
-				php_error(E_WARNING, "fss_prep_search: %s", error);
-			}
-		}
-	} else {
-		convert_to_string_ex(&needle);
+        ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(needle), elem) {
+                    if(!Z_STRLEN_P(elem)) {
+                        continue;
+                    }
+                    error = kwsincr(res->set, Z_STRVAL_P(elem), Z_STRLEN_P(elem));
+                    if(error) {
+                        php_error(E_WARNING, "fss_prep_search: %s", error);
+                    }
+                }ZEND_HASH_FOREACH_END();
+
+    } else {
+        convert_to_string_ex(needle);
 		error = kwsincr(res->set, Z_STRVAL_P(needle), Z_STRLEN_P(needle));
-		if (error) {
+		if(error) {
 			php_error(E_WARNING, "fss_prep_search: %s", error);
 		}
 	}
 	kwsprep(res->set);
-	ZEND_REGISTER_RESOURCE(return_value, res, le_fss);
+    RETURN_RES(zend_register_resource(res, le_fss));
 }
 /* }}} */
 
@@ -145,38 +133,43 @@ PHP_FUNCTION(fss_prep_search)
 PHP_FUNCTION(fss_exec_search)
 {
 	char *haystack = NULL;
-	int argc = ZEND_NUM_ARGS();
-	int handle_id = -1;
-	int haystack_len;
+	size_t haystack_len;
 	long offset = 0;
-	zval *handle = NULL, *temp;
-	fss_resource_t * res;
+    zval *handle = NULL, *temp;
+	fss_resource_t *res;
 	struct kwsmatch m;
 	size_t match_pos;
 
-	if (zend_parse_parameters(argc TSRMLS_CC, "rs|l", &handle, &haystack, &haystack_len, &offset) == FAILURE) 
-		return;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs|l", &handle, &haystack, &haystack_len, &offset) == FAILURE) {
+        return;
+    }
 
 	if (offset >= haystack_len || offset < 0) {
 		RETURN_FALSE;
 	}
 
-	ZEND_FETCH_RESOURCE(res, fss_resource_t*, &handle, handle_id, "fss", le_fss);
+	if( (res = (fss_resource_t *)zend_fetch_resource(Z_RES_P(handle), "fss", le_fss)) == NULL) {
+        RETURN_FALSE;
+    };
+
 	match_pos = kwsexec(res->set, haystack + offset, haystack_len - offset, &m);
-	
+
 	if (match_pos == (size_t)-1) {
 		RETURN_FALSE;
 	}
 
+
 	array_init(return_value);
 
-	MAKE_STD_ZVAL(temp);
-	ZVAL_LONG(temp, m.offset[0] + offset);
-	zend_hash_next_index_insert(HASH_OF(return_value), (void *)&temp, sizeof(zval *), NULL);
+	zval res_temp[2];
+	ZVAL_LONG(&res_temp[0], m.offset[0] + offset);
+	zend_hash_next_index_insert(HASH_OF(return_value), (void *)&res_temp[0]);
+	ZVAL_LONG(&res_temp[1], m.size[0]);
+	zend_hash_next_index_insert(HASH_OF(return_value), (void *)&res_temp[1]);
 
-	MAKE_STD_ZVAL(temp);
-	ZVAL_LONG(temp, m.size[0]);
-	zend_hash_next_index_insert(HASH_OF(return_value), (void *)&temp, sizeof(zval *), NULL);
+    zval_ptr_dtor(&res_temp[1]);
+    zval_ptr_dtor(&res_temp[0]);
+
 }
 /* }}} */
 
@@ -184,72 +177,68 @@ PHP_FUNCTION(fss_exec_search)
    Prepare a search and replace operation */
 PHP_FUNCTION(fss_prep_replace)
 {
-	int argc = ZEND_NUM_ARGS();
-	zval *replace_pairs = NULL, **value;
+	zval *replace_pairs = NULL, *value;
+    zend_string *string_key;
 	HashTable * hash;
 	HashPosition hpos;
 	fss_resource_t * res;
 	const char *error;
 	int i;
-	char *string_key;
 	char buffer[40];
-	uint string_key_len;
-	ulong num_key;
-	
+    size_t string_key_len;
+	zend_long num_key;
 
-	if (zend_parse_parameters(argc TSRMLS_CC, "a", &replace_pairs) == FAILURE) 
-		return;
-	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "a", &replace_pairs) == FAILURE) {
+        return;
+    }
+
 	hash = Z_ARRVAL_P(replace_pairs);
 
-	/* fss_resource_t has an open-ended array, we allocate enough memory for the 
+	/* fss_resource_t has an open-ended array, we allocate enough memory for the
 	   header plus all the array elements, plus one extra element for good measure */
 	res = safe_emalloc(sizeof(zval*), hash->nNumOfElements, sizeof(fss_resource_t));
 	res->set = kwsalloc(NULL);
-	res->replace_size = hash->nNumOfElements;
-	
-	for (zend_hash_internal_pointer_reset_ex(hash, &hpos), i = 0; 
-			zend_hash_get_current_data_ex(hash, (void**)&value, &hpos) == SUCCESS;
-			zend_hash_move_forward_ex(hash, &hpos), ++i)
-	{
-		/* Convert numeric keys to string */
-		if (zend_hash_get_current_key_ex(hash, &string_key, &string_key_len, &num_key, 0, 
-					&hpos) == HASH_KEY_IS_LONG) 
-		{
-			sprintf(buffer, "%lu", num_key);
-			string_key = buffer;
-			string_key_len = strlen(buffer);
-		} else {
-			/* Minus one for null */
-			string_key_len--;
-		}
-		
-		/* Don't add zero-length strings, that will cause infinite loops in 
-		   search routines */
-		if (!string_key_len) {
-			res->replace[i] = NULL;
-			continue;
-		}
 
-		/* Add the key to the search tree */
-		error = kwsincr(res->set, string_key, string_key_len);
-		if (error) {
-			res->replace[i] = NULL;
-			php_error(E_WARNING, "fss_prep_replace: %s", error);
-			continue;
-		}
+    i = 0;
+    ZEND_HASH_FOREACH_KEY_VAL(hash, num_key, string_key, value) {
 
-		/* Add the value to the replace array */
-		convert_to_string_ex(value);
-#ifdef Z_ADDREF_P /* 5.3 */
-		Z_ADDREF_P(*value);
-#else
-		ZVAL_ADDREF(*value);
-#endif
-		res->replace[i] = *value;
-	}
+                /* Convert numeric keys to string */
+                if(!string_key) {
+                    sprintf(buffer, "%lu", num_key);
+                    string_key = zend_string_init(buffer, strlen(buffer), 0);
+                    string_key_len = strlen(buffer);
+                } else {
+                    /* Minus one for null */
+                    string_key_len = string_key->len;
+                }
+
+                /* Don't add zero-length strings, that will cause infinite loops in search routines */
+                if (!string_key_len) {
+                    res->replace[i] = NULL;
+                    continue;
+                }
+
+                /* Add the key to the search tree */
+                error = kwsincr(res->set, ZSTR_VAL(string_key), string_key_len);
+                if (error) {
+                    res->replace[i] = NULL;
+                    php_error(E_WARNING, "fss_prep_replace: %s", error);
+                    continue;
+                }
+
+                /* Add the value to the replace array */
+                convert_to_string_ex(value);
+
+                Z_TRY_ADDREF_P(value);
+                res->replace[i] = value;
+                ++i;
+        } ZEND_HASH_FOREACH_END();
+
+    res->replace_size = i;
 	kwsprep(res->set);
-	ZEND_REGISTER_RESOURCE(return_value, res, le_fss);	
+
+    RETURN_RES(zend_register_resource(res, le_fss));
 }
 /* }}} */
 
@@ -257,31 +246,33 @@ PHP_FUNCTION(fss_prep_replace)
    Execute a search and replace operation */
 PHP_FUNCTION(fss_exec_replace)
 {
+    zval *handle = NULL;
 	char *subject = NULL;
-	int argc = ZEND_NUM_ARGS();
-	int handle_id = -1;
-	int subject_len;
-	zval *handle = NULL;
+    size_t subject_len;
+
 	size_t match_pos = 0;
 	fss_resource_t * res;
 	struct kwsmatch m;
 	smart_str result = {0};
 	zval *temp;
 
-	if (zend_parse_parameters(argc TSRMLS_CC, "rs", &handle, &subject, &subject_len) == FAILURE) 
-		return;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &handle, &subject, &subject_len) == FAILURE) {
+        return;
+    }
 
-	ZEND_FETCH_RESOURCE(res, fss_resource_t*, &handle, handle_id, "fss", le_fss);
-	
-	while (subject_len > 0 && 
-		   	(size_t)-1 != (match_pos = kwsexec(res->set, subject, subject_len, &m))) 
+    if( (res = (fss_resource_t *)zend_fetch_resource(Z_RES_P(handle), "fss", le_fss)) == NULL) {
+        RETURN_FALSE;
+    };
+
+
+	while (subject_len > 0 && (size_t)-1 != (match_pos = kwsexec(res->set, subject, subject_len, &m)))
 	{
 		/* Output the leading portion */
 		smart_str_appendl(&result, subject, match_pos);
 
-		/* Output the replacement portion 
-		   The index may be above the size of the replacement array if the 
-		   object was prepared as a search object instead of a replacement 
+		/* Output the replacement portion
+		   The index may be above the size of the replacement array if the
+		   object was prepared as a search object instead of a replacement
 		   object. In that case, we replace the item with an empty string
 		 */
 		if (m.index < res->replace_size) {
@@ -289,6 +280,7 @@ PHP_FUNCTION(fss_exec_replace)
 			if (temp) {
 				smart_str_appendl(&result, Z_STRVAL_P(temp), Z_STRLEN_P(temp));
 			}
+			zval_ptr_dtor(temp);
 		}
 
 		/* Increment and continue */
@@ -300,9 +292,9 @@ PHP_FUNCTION(fss_exec_replace)
 		smart_str_appendl(&result, subject, subject_len);
 	}
 	/* Return the result */
-	if (result.c) {
+	if (result.s) {
 		smart_str_0(&result);
-		RETURN_STRINGL(result.c, result.len, 0);
+		RETURN_STR(result.s);
 	} else {
 		RETURN_EMPTY_STRING();
 	}
@@ -313,30 +305,37 @@ PHP_FUNCTION(fss_exec_replace)
    Free an FSS object */
 PHP_FUNCTION(fss_free)
 {
-	int argc = ZEND_NUM_ARGS();
-	int handle_id = -1;
-	zval *handle = NULL;
+    zval *handle = NULL;
 	fss_resource_t * res;
 
-	if (zend_parse_parameters(argc TSRMLS_CC, "r", &handle) == FAILURE) 
-		return;
-	
-	ZEND_FETCH_RESOURCE(res, fss_resource_t*, &handle, handle_id, "fss", le_fss);
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &handle) == FAILURE) {
+        return;
+    }
+
+    if( (res = (fss_resource_t *)zend_fetch_resource(Z_RES_P(handle), "fss", le_fss)) == NULL) {
+        RETURN_FALSE;
+    };
+
 	if (handle) {
-		zend_list_delete(Z_RESVAL_P(handle));
+        if(zend_list_close(Z_RES_P(handle)) == FAILURE) {
+            RETURN_FALSE;
+        };
+        RETURN_TRUE;
 	}
 }
 /* }}} */
 
 /* {{{ _php_fss_close
    List destructor for FSS handles */
-static void _php_fss_close(zend_rsrc_list_entry *rsrc TSRMLS_DC)
+static void _php_fss_close(zend_resource *rsrc TSRMLS_DC)
 {
 	int i;
 	fss_resource_t * res = (fss_resource_t *)rsrc->ptr;
 	/* Destroy the replace strings */
 	for (i = 0; i < res->replace_size; i++) {
-		zval_ptr_dtor(&res->replace[i]);
+		if (res->replace[i]) {
+            zval_ptr_dtor(res->replace[i]);
+		}
 	}
 	/* Destroy the kwset structure */
 	kwsfree(res->set);
